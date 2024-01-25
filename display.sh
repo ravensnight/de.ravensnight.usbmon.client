@@ -1,5 +1,6 @@
 #!/usr/bin/bash
 TTY=/dev/ttyUSB0
+DEMO=OFF
 PAGE_DEBUG=d
 PAGE_STATE=s
 PAGE_NAME=n
@@ -33,7 +34,9 @@ function set_name() {
 
 function service() {
    local v=$(printf '%02x' $1)
-   if [ "active" == `systemctl is-active $2` ]; then
+   if [ "ON" == $DEMO ]; then
+      send "${PAGE_STATE_CUST}${v}01up!"
+   elif [ "active" == `systemctl is-active $2` ]; then
       local s=$(printf '%5s' "up")
       send "${PAGE_STATE_CUST}${v}01$s!"
    else
@@ -45,45 +48,64 @@ function service() {
 function reach() {
    local v=$(printf '%02x' $1)
 
-   ping -c 2 -W 1 "$2" > /dev/null 2>&1
-   if [ $? == 0 ]; then
+   if [ "ON" == $DEMO ]; then
       send "${PAGE_STATE}${v}01"
    else
-      send "${PAGE_STATE}${v}04"
+      ping -c 2 -W 1 "$2" > /dev/null 2>&1
+      if [ $? == 0 ]; then
+         send "${PAGE_STATE}${v}01"
+      else
+         send "${PAGE_STATE}${v}04"
+      fi
    fi
 }
 
 function sens() {
    local i=$(printf '%02x' $1)
-   local v=$(sensors | grep "$2" | sed -r 's/.+:[ \t]+\+([0-9]+)\..*/\1/g')
-   local s=01
 
-   if [ $v -gt $3 ]; then s=02; fi
-   if [ $v -gt $4 ]; then s=03; fi
+   if [ "ON" == $DEMO ]; then
+      send "${PAGE_STATE_CUST}${i}01 41\dfC!"
+   else
+      local s=01
+      local v=$(sensors | grep "$2" | sed -r 's/.+:[ \t]+\+([0-9]+)\..*/\1/g')
 
-   local t=$(printf '%3s\dfC' $v)
-   send "${PAGE_STATE_CUST}$i$s$t!"
+      if [ $v -gt $3 ]; then s=02; fi
+      if [ $v -gt $4 ]; then s=03; fi
+
+      local t=$(printf '%3s\dfC' $v)
+      send "${PAGE_STATE_CUST}$i$s$t!"
+   fi
 }
 
 function smartTemp() {
    local i=$(printf '%02x' $1)
-   local v=$(sudo smartctl -a "$2" | grep "$3" | sed -r 's/[ \t]+/|/g' | cut -d'|' -f$4)
-   local s=01
 
-   if [ $v -gt $5 ]; then s=02; fi
-   if [ $v -gt $6 ]; then s=03; fi
+   if [ "ON" == $DEMO ]; then
+      send "${PAGE_STATE_CUST}${i}01 41\dfC!"
+   else
+      local s=01
+      local v=$(sudo smartctl -a "$2" | grep "$3" | sed -r 's/[ \t]+/|/g' | cut -d'|' -f$4)
 
-   local t=$(printf '%3s\dfC' $v)
-   send "${PAGE_STATE_CUST}$i$s$t!"
+      if [ $v -gt $5 ]; then s=02; fi
+      if [ $v -gt $6 ]; then s=03; fi
+
+      local t=$(printf '%3s\dfC' $v)
+      send "${PAGE_STATE_CUST}$i$s$t!"
+   fi
 }
 
 function smartHealth() {
    local i=$(printf '%02x' $1)
-   local v=$(sudo smartctl -a "$2" | grep "health" | sed -r 's/[ \t]+/|/g' | cut -d'|' -f6)
-   local s=01
 
-   if [ "$v" != "PASSED" ]; then s=03; fi
-   send "${PAGE_STATE}$i$s"
+   if [ "ON" == $DEMO ]; then
+      send "${PAGE_STATE}${i}01"
+   else
+      local v=$(sudo smartctl -a "$2" | grep "health" | sed -r 's/[ \t]+/|/g' | cut -d'|' -f6)
+      local s=01
+
+      if [ "$v" != "PASSED" ]; then s=03; fi
+      send "${PAGE_STATE}$i$s"
+   fi
 }
 
 function status() {
@@ -136,12 +158,14 @@ function setup() {
 }
 
 function help() {
-   echo "display.sh [setup|status|nightmode|daymode|help]"
+   echo "display.sh setup|status|nightmode|daymode|help [<device>]"
    echo "   setup     .. send setup information to control display."
    echo "   status    .. acquire and send status information to display."
    echo "   nightmode .. switch to night mode to disable blinking."
    echo "   daymode   .. switch to normal display mode."
    echo "   help      .. print this help."
+   echo "   demo      .. run setup command and send status "okay" for all fields without really checking.
+   echo "   <device>  .. optional. the device to use as TTY output instead if /dev/ttyUSB0"
    exit 1
 }
 
@@ -150,21 +174,35 @@ if [ $# -gt 0 ]; then
    cmd="$1"
 fi
 
+if [ $# -gt 1 ]; then
+   TTY="$2"
+fi
+
 echo "Run command $cmd"
 
 case "$cmd" in
+   demo)
+      DEMO=ON
+      setup
+      ;;
+
    setup)
-	setup;;
+	   setup
+      ;;
 
    status)
-	status;;
+	   status
+      ;;
 
    nightmode)
-        send m01;;
+      send m01
+      ;;
 
    daymode)
-        send m00;;
+      send m00
+      ;;
 
    *)
-      help;;
+      help
+      ;;
 esac
