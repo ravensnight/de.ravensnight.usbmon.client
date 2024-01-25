@@ -164,7 +164,7 @@ function help() {
    echo "   nightmode .. switch to night mode to disable blinking."
    echo "   daymode   .. switch to normal display mode."
    echo "   help      .. print this help."
-   echo "   demo      .. run setup command and send status "okay" for all fields without really checking.
+   echo "   demo      .. run setup command and send status "okay" for all fields without really checking."
    echo "   <device>  .. optional. the device to use as TTY output instead if /dev/ttyUSB0"
    exit 1
 }
