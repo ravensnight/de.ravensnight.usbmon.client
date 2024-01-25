@@ -35,7 +35,7 @@ function set_name() {
 function service() {
    local v=$(printf '%02x' $1)
    if [ "ON" == $DEMO ]; then
-      send "${PAGE_STATE_CUST}${v}01up!"
+      send "${PAGE_STATE_CUST}${v}01   up!"
    elif [ "active" == `systemctl is-active $2` ]; then
       local s=$(printf '%5s' "up")
       send "${PAGE_STATE_CUST}${v}01$s!"
